@@ -1,4 +1,4 @@
-package com.example.referendo;
+package com.example.proyvotaciones;
 
 import java.io.File;
 import java.io.FileNotFoundException;
@@ -96,7 +96,8 @@ public class CSVLoader {
 
 			if (truncateBeforeLoad) {
 				// delete data from table before loading csv
-				con.createStatement().execute("DELETE FROM " + tableName + "WHERE nombreplebiscito = '"+pK+"'");
+				System.out.println("DELETE FROM " + tableName + " WHERE nombreplebiscito = '"+pK+"'");
+				con.createStatement().execute("DELETE FROM " + tableName + " WHERE nombreplebiscito = '"+pK+"'");
 			}
 
 			final int batchSize = 1000;

@@ -1,6 +1,6 @@
-package com.example.referendo;
+package com.example.proyvotaciones;
 
-import com.example.referendo.NavigatorUI.MainView;
+import com.example.proyvotaciones.NavigatorUI.MainView;
 import com.vaadin.client.metadata.Property;
 import com.vaadin.data.util.sqlcontainer.SQLContainer;
 import com.vaadin.data.util.sqlcontainer.connection.JDBCConnectionPool;
@@ -10,6 +10,7 @@ import com.vaadin.event.FieldEvents.BlurEvent;
 import com.vaadin.event.FieldEvents.BlurListener;
 import com.vaadin.event.FieldEvents.FocusListener;
 import com.vaadin.server.ErrorMessage;
+import com.vaadin.server.FileResource;
 import com.vaadin.server.UserError;
 import com.vaadin.server.VaadinRequest;
 import com.vaadin.ui.AbstractTextField;
@@ -20,7 +21,9 @@ import com.vaadin.ui.CheckBox;
 import com.vaadin.ui.ComboBox;
 import com.vaadin.ui.FormLayout;
 import com.vaadin.ui.HorizontalLayout;
+import com.vaadin.ui.Image;
 import com.vaadin.ui.Label;
+import com.vaadin.ui.Notification;
 import com.vaadin.ui.Panel;
 import com.vaadin.ui.PopupDateField;
 import com.vaadin.ui.TextArea;
@@ -68,11 +71,16 @@ public class EditarPlebiscito extends Panel{
 	private File tempFile;
 	FileReader reader;
 	EditarPadron editarPadronWindow;
+	String pk;
+	Image image;
+	File imgFile;
+	String iniIns, finIns, iniDis, finDis, iniVot, finVot;
 
 	public EditarPlebiscito(final MainView mainView) {
 		
 		validador = new Validador();
 		dBManager = new DBManager();
+		pk = "";
 		
 		final FormLayout layout = new FormLayout();
 		layout.setMargin(true);
@@ -80,10 +88,9 @@ public class EditarPlebiscito extends Panel{
         layout.addStyleName("outlined");
         layout.setSizeFull();
         layout.setSpacing(true);
-        Upload imgUpload;
         
         /*Inicializacion de nombre*/
-        nombre = new ComboBox("Nombre del Plebiscito");
+        nombre = new ComboBox("Nombre del Proceso");
         nombre.setNullSelectionAllowed(false);
         nombre.setRequired(true);
         nombre.addBlurListener(new BlurListener() {	
@@ -98,7 +105,7 @@ public class EditarPlebiscito extends Panel{
         
         
         try {
-        	JDBCConnectionPool sqlPool = new SimpleJDBCConnectionPool("org.postgresql.Driver", "jdbc:postgresql://localhost:5432/ReferendoDB", "postgres", "password",2,5);
+        	JDBCConnectionPool sqlPool = new SimpleJDBCConnectionPool("org.postgresql.Driver", "jdbc:postgresql://localhost:5432/postgres", "postgres", "1234",2,5);
         	TableQuery q = new TableQuery("plebiscito", sqlPool);
 			containerNombre = new SQLContainer(q);
 			nombre.setContainerDataSource(containerNombre);
@@ -109,8 +116,11 @@ public class EditarPlebiscito extends Panel{
 			e.printStackTrace();
 		}
         
-        
-        
+        /*Iniciializa la imagen subida*/
+        final Image image = new Image("Imagen Subida");
+	    image.setVisible(false);
+      
+	    
         /*Inicializacion de tipo*/
         tipo = new ComboBox("Tipo");
         tipo.setNullSelectionAllowed(false);
@@ -131,33 +141,53 @@ public class EditarPlebiscito extends Panel{
 	    inicializarTextFields();
 	    
 	    inicioInscripcion = new PopupDateField("Inicio");
-		inicioInscripcion.setDateFormat("yyyy-mm-dd");
+		inicioInscripcion.setDateFormat("dd/MM/yyyy");
 		finInscripcion = new PopupDateField("Fin");
-		finInscripcion.setDateFormat("yyyy-mm-dd");
+		finInscripcion.setDateFormat("dd/MM/yyyy");
 		inicioDiscusion = new PopupDateField("Inicio");
-		inicioDiscusion.setDateFormat("yyyy-mm-dd");
+		inicioDiscusion.setDateFormat("dd/MM/yyyy");
 		finDiscusion = new PopupDateField("Fin");
-		finDiscusion.setDateFormat("yyyy-mm-dd");
+		finDiscusion.setDateFormat("dd/MM/yyyy");
 		inicioVotacion = new PopupDateField("Inicio");
-		inicioVotacion.setDateFormat("yyyy-mm-dd");
+		inicioVotacion.setDateFormat("dd/MM/yyyy");
 		finVotacion = new PopupDateField("Fin");
-		finVotacion.setDateFormat("yyyy-mm-dd");
+		finVotacion.setDateFormat("dd/MM/yyyy");
        
-        layout.addComponent(nombre);
+		layout.addComponent(nombre);
         layout.addComponent(descripcion);
         layout.addComponent(comunidad);
         layout.addComponent(organizador);
         layout.addComponent(tipo);
         layout.addComponent(estilo);
        
-        imgUpload = new Upload("Archivo de la imagen ", null);
-        imgUpload.setButtonCaption("Cargar archivo de la imagen");
-        imgUpload.setButtonCaption("Start Upload");
-        layout.addComponent(new Upload("Archivo de la imagen ", new Upload.Receiver() {
-            public OutputStream receiveUpload(String filename, String MIMEType) {
-                return null;
-            }
-        }));
+        final Upload imgUpload = new Upload("Archivo de la imagen ",
+    			new Upload.Receiver() {
+    				public OutputStream receiveUpload(String filename,
+    						String mimeType) {
+    					// Create upload stream
+    					FileOutputStream fos = null; // Stream to write to
+    					try {
+    						// Open the file for writing.
+    						imgFile = new File(".\\" + filename);
+    						fos = new FileOutputStream(imgFile);
+    					} catch (final java.io.FileNotFoundException e) {
+    						Notification.show("Could not open file<br/>",
+    								e.getMessage(),
+    								Notification.TYPE_ERROR_MESSAGE);
+    						return null;
+    					}
+    					return fos; // Return the output stream to write to
+    				}
+    			});
+            imgUpload.addFinishedListener((new Upload.FinishedListener() {
+    	        @Override
+    	        public void uploadFinished(Upload.FinishedEvent finishedEvent) {
+    	        	image.setVisible(true);
+    				image.setSource(new FileResource(imgFile));
+    	        }
+            }));
+    		layout.addComponent(imgUpload);
+    		layout.addComponent(image);
         
  
         final Upload upload = new Upload("Archivo del Padrón ", new Upload.Receiver() {
@@ -218,7 +248,6 @@ public class EditarPlebiscito extends Panel{
         editarPadron = new Button("Editar padrón");
         editarPadron.addClickListener(new Button.ClickListener() {
             public void buttonClick(ClickEvent event) {
-            	//verificarDatos();
             	if (nombre.getValue() != null){
             		editarPadronWindow = new EditarPadron(mainView, nombre.getValue().toString());
             		nombre.setComponentError(null);
@@ -255,6 +284,7 @@ public class EditarPlebiscito extends Panel{
         finalizarEdicion = new Button("Finalizar la edición");
         finalizarEdicion.addClickListener(new Button.ClickListener() {
             public void buttonClick(ClickEvent event) {
+            	boolean exito = true;
             	if ( verificarErrorDatos() == false ){
             		try {
             			if (reader != null){
@@ -263,25 +293,38 @@ public class EditarPlebiscito extends Panel{
 							csvLoader.loadCSV(reader, "padron", "cedula, apellido1, apellido2, nombre, nombreplebiscito", columnTypes, nombre.getValue().toString(), true);
 							reader = null;
             			}
-						
+            		} catch (Exception e) {
+						// TODO Auto-generated catch block
+						upload.setComponentError(new UserError("Revisar formato del archivo del padron"));
+						e.printStackTrace();
+						exito = false;
+					}
+					try{	
 						String columnNames = "nombreplebiscito, organizador, descripcion, comunidad, tipo, estilo";/*+ 
 				        "inicioinscripciontendencias, inicioperiododiscucion,"+ 
 				       "inicioperiodovotacion, fininscripciontendencias, finperiododiscusion,"+ 
 				       "finperiodovotacion";*/
 			
+						calculoFechas();
 						String[] values = {nombre.getValue().toString(), organizador.getValue(), descripcion.getValue(), comunidad.getValue(), tipo.getValue().toString().substring(0, 1),
-							       estilo.getValue().toString().substring(0, 1), inicioInscripcion.getValue().toString(), inicioDiscusion.getValue().toString(),
-							       inicioVotacion.getValue().toString(), finInscripcion.getValue().toString(), finDiscusion.getValue().toString(),
-							       finVotacion.getValue().toString() };
+							       estilo.getValue().toString().substring(0, 1), iniIns, iniDis, iniVot, finIns, finDis, finVot};
 						dBManager.updateData("plebiscito", columnNames, values);
-						Window guardarCambiosWindow = new Window("Guardar Cambios", new Label("Cambios Guardados con exito"));
-	            		mainView.getUI().addWindow(guardarCambiosWindow);
-	            		guardarCambiosWindow.setPositionX(200);
-	            		guardarCambiosWindow.setPositionY(100);
+						if (imgFile != null){
+							dBManager.addImagePlebiscito(imgFile.getAbsolutePath(), nombre.getValue().toString());
+						}
+						nombre.setComponentError(null);
+						finalizarEdicion.setComponentError(null);
 					} catch (Exception e) {
 						// TODO Auto-generated catch block
-						upload.setComponentError(new UserError("Revisar formato del archivo del padron"));
+						finalizarEdicion.setComponentError(new UserError("Error edicion en la base de datos"));
+						exito = false;
 						e.printStackTrace();
+					}
+					if (exito){
+						Window guardarCambiosWindow = new Window("Guardar Cambios", new Label("Cambios Guardados con exito"));
+	            		mainView.getUI().addWindow(guardarCambiosWindow);
+	            		guardarCambiosWindow.setPositionX(100);
+	            		guardarCambiosWindow.setPositionY(100);
 					}
             	}
             }
@@ -294,7 +337,7 @@ public class EditarPlebiscito extends Panel{
 	
 	public void obtenerDatos(){
 		 try {
-			 	String pk = nombre.getValue().toString();
+			 	pk = nombre.getValue().toString();
 			 	if (dBManager.SelectValuePlebiscito("estilo", pk).equals("A")){
 			 		estilo.select("Abierto");
 			 	}else{
@@ -333,9 +376,9 @@ public class EditarPlebiscito extends Panel{
 	public boolean verificarFechasTraslapadas(){
 		boolean hayError = false;
 		try{
-			if (finInscripcion.getValue().equals(inicioVotacion.getValue()) || 
+			if (finInscripcion.getValue()  != null && inicioVotacion.getValue()  != null ) {
+				if (finInscripcion.getValue().equals(inicioVotacion.getValue()) || 
 					finInscripcion.getValue().after(inicioVotacion.getValue())){
-				if (finInscripcion.getValue()  != null && inicioVotacion.getValue()  != null ) {
 					inicioVotacion.setComponentError(new UserError("Las fechas de inscipcion y votacion no se pueden traslapar"));
 					finInscripcion.setComponentError(new UserError("Las fechas de inscipcion y votacion no se pueden traslapar"));
 					hayError = true;
@@ -344,7 +387,6 @@ public class EditarPlebiscito extends Panel{
 			else{
 				inicioVotacion.setComponentError(null);
 				finInscripcion.setComponentError(null);
-				
 			}
 		}
 		catch(Exception e){
@@ -362,6 +404,11 @@ public class EditarPlebiscito extends Panel{
 				| validador.verificarTextField(comunidad) | validador.verificarTextField(organizador) | 
 				validador.verificarFechas(inicioDiscusion, finDiscusion) ){
 			hayError = true;
+		}
+		else{
+			if ( validador.verificarCampoCedula(organizador) ){
+				hayError = true;
+			}
 		}
 		if ( !validador.verificarFechas(inicioInscripcion, finInscripcion) & 
 				!validador.verificarFechas(inicioVotacion, finVotacion) ){
@@ -391,6 +438,47 @@ public class EditarPlebiscito extends Panel{
 		finInscripcion.setValue(null);
 		finVotacion.setValue(null);
 		finDiscusion.setValue(null);
+	}
+	
+	public void calculoFechas(){
+		if (inicioInscripcion.getValue() == null){
+			iniIns = ""; 
+		}
+		else{
+			iniIns = inicioInscripcion.getValue().toString();
+		}
+		if (finInscripcion.getValue() == null){
+			finIns = ""; 
+		}
+		else{
+			finIns = finInscripcion.getValue().toString();
+		}
+		
+		if (inicioVotacion.getValue() == null){
+			iniVot = ""; 
+		}
+		else{
+			iniVot = inicioVotacion.getValue().toString();
+		}
+		if (finVotacion.getValue() == null){
+			finVot = ""; 
+		}
+		else{
+			finVot = finVotacion.getValue().toString();
+		}
+		
+		if (inicioDiscusion.getValue() == null){
+			iniDis = ""; 
+		}
+		else{
+			iniDis = inicioDiscusion.getValue().toString();
+		}
+		if (finDiscusion.getValue() == null){
+			finDis = ""; 
+		}
+		else{
+			finDis = finDiscusion.getValue().toString();
+		}
 	}
 }
 

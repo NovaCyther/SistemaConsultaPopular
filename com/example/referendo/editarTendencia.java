@@ -1,44 +1,37 @@
 package com.example.proyvotaciones;
-import com.vaadin.navigator.Navigator;
-import com.vaadin.server.ErrorMessage;
-import com.vaadin.server.FileResource;
-import com.vaadin.server.UserError;
-import com.vaadin.server.VaadinRequest;
-import com.vaadin.ui.AbstractTextField;
-import com.vaadin.ui.Button;
-import com.vaadin.ui.Button.ClickEvent;
-import com.vaadin.ui.Button.ClickListener;
-import com.vaadin.ui.CheckBox;
-import com.vaadin.ui.ComboBox;
-import com.vaadin.ui.FormLayout;
-import com.vaadin.ui.HorizontalLayout;
-import com.vaadin.ui.Image;
-import com.vaadin.ui.Label;
-import com.vaadin.ui.Notification;
-import com.vaadin.ui.Panel;
-import com.vaadin.ui.PopupDateField;
-import com.vaadin.ui.TextArea;
-import com.vaadin.ui.TextField;
-import com.vaadin.ui.UI;
-import com.vaadin.ui.Upload;
 
-import java.io.ByteArrayOutputStream;
 import java.io.File;
-import java.io.FileInputStream;
-import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
-import java.io.IOException;
 import java.io.OutputStream;
 import java.sql.SQLException;
 import java.text.ParseException;
 import java.util.ArrayList;
 import java.util.Date;
 
+import com.vaadin.server.FileResource;
+import com.vaadin.server.UserError;
+import com.vaadin.ui.Button;
+import com.vaadin.ui.ComboBox;
+import com.vaadin.ui.FormLayout;
+import com.vaadin.ui.Image;
+import com.vaadin.ui.Label;
+import com.vaadin.ui.Notification;
+import com.vaadin.ui.Panel;
+import com.vaadin.ui.TextArea;
+import com.vaadin.ui.TextField;
 import com.vaadin.ui.Upload;
-import com.vaadin.ui.Window;
+import com.vaadin.ui.Button.ClickEvent;
 
-public class inscribirTendencia extends Panel {
-
+public class editarTendencia extends Panel {
+	DBManager manejoDB;
+	ComboBox listaVotaciones;
+	Button OK;
+	ArrayList<String> infoTendencia;
+	ArrayList<String> tendencias;
+	Button aceptar;
+	ComboBox titulosF;
+	
+	
 	public String nombre="";
 	public int cantTot=0;
 	public String tipo="plebiscito";
@@ -51,7 +44,6 @@ public class inscribirTendencia extends Panel {
 	boolean validador=true;
 	public ArrayList<String> miembros;
 	public tendencias nuevaTendencia;
-	public DBManager manejoDB;
 	TextField nombreTendencia;
 	TextArea descripcionTende;
 	Label representanteNombre;
@@ -62,14 +54,14 @@ public class inscribirTendencia extends Panel {
 	TextField nombreMiembro;
 	Button agregarMiembro;
 	Button quitarMiembro;
-	Button OK; 
 	ComboBox listaMiembors;
-	ComboBox listaVotaciones;
 	Button inscribirPlebiscito;
 	Label mensaje;
 	private File imgFile;
+	Button borrarPlebiscito;
 	
-	public inscribirTendencia(){
+	public editarTendencia(){
+		nuevaTendencia=new tendencias();
 		manejoDB=new DBManager();
 		final FormLayout layout = new FormLayout();
 		layout.setMargin(true);
@@ -77,12 +69,12 @@ public class inscribirTendencia extends Panel {
 		listaVotaciones = new ComboBox("Procesos de votacion");
 		listaVotaciones.setNullSelectionAllowed(false);
 		manejoDB.procesosVotacion();
-
+	
 		for(int i=0;i<manejoDB.votaciones.size();i++){
 			try {
 				if(null!=manejoDB.convertirAFechaPopUpField(manejoDB.SelectValuePlebiscito("fininscripciontendencias", manejoDB.votaciones.get(i)))&&null!=manejoDB.convertirAFechaPopUpField(manejoDB.SelectValuePlebiscito("inicioinscripciontendencias", manejoDB.votaciones.get(i)))){
 					if((manejoDB.convertirAFechaPopUpField(manejoDB.SelectValuePlebiscito("fininscripciontendencias", manejoDB.votaciones.get(i)))).before(new Date())&&(manejoDB.convertirAFechaPopUpField(manejoDB.SelectValuePlebiscito("inicioinscripciontendencias", manejoDB.votaciones.get(i)))).after(new Date())){
-						listaVotaciones.addItem(manejoDB.votaciones.get(i));
+									listaVotaciones.addItem(manejoDB.votaciones.get(i));
 					}
 				}else{
 					listaVotaciones.addItem(manejoDB.votaciones.get(i));			
@@ -90,30 +82,55 @@ public class inscribirTendencia extends Panel {
 			} catch (Exception e) {
 				// TODO Auto-generated catch block
 				e.printStackTrace();
-			} 
+			}
+			
 		}
-		
-		  OK = new Button("Aceptar");
+		miembros=new ArrayList();
+		  OK = new Button("Elegir votacion");
 		  
 		  OK.addClickListener(new Button.ClickListener() {
-              public void buttonClick(ClickEvent event) {
-            	  LayoutEscogido(listaVotaciones.getValue().toString());
-            	  
-              }
-          });
+            public void buttonClick(ClickEvent event) {
+          	  if(titulosF!=null)titulosF.setVisible(false);
+          	  if(aceptar!=null)aceptar.setVisible(false);
+          	  titulosF=new ComboBox("tendencias");
+          	manejoDB.getTendencias(listaVotaciones.getValue().toString());
+    		tendencias=manejoDB.tendencias;
+    		infoTendencia=new ArrayList<String>();
+    		
+    		
+    		
+ 
+    		
+        		  for(int i=0;i<tendencias.size();i++){
+        			  titulosF.addItem(tendencias.get(i));
+        		  }
+        		  aceptar=new Button("Editar tendencia");
+      		  layout.addComponent(titulosF);
+      		  aceptar.addClickListener(new Button.ClickListener() {
+                    public void buttonClick(ClickEvent event) {
+                    	infoTendencia=manejoDB.infoTendencias(titulosF.getValue().toString(),listaVotaciones.getValue().toString());
+                    	miembros=manejoDB.getMiembrosTendencia(listaVotaciones.getValue().toString(), titulosF.getValue().toString());
+                    	nuevaTendencia.miembrosant=manejoDB.getMiembrosTendencia(listaVotaciones.getValue().toString(), titulosF.getValue().toString());
+                    	
+                    	System.out.println(infoTendencia.toString());
+                    	LayoutEscogido(listaVotaciones.getValue().toString());
+                    }
+                });
+      		  layout.addComponent(aceptar);
+            }
+        });
+		  
 		  layout.addComponent(listaVotaciones);
 		  layout.addComponent(OK);
 	}
-	
-	
-	
 	
 	public void LayoutEscogido(String nombreVotacion){
 		nombre=nombreVotacion;
 		tipo=manejoDB.getTipoProceso(nombreVotacion);
 		cantTot=manejoDB.getCantTendencias(nombreVotacion);
-		miembros=new ArrayList();
-		nuevaTendencia=new tendencias();
+
+
+
 		final FormLayout layout = new FormLayout();
 		layout.setMargin(true);
 		setContent(layout);
@@ -122,8 +139,8 @@ public class inscribirTendencia extends Panel {
         layout.setSpacing(true);
         listaMiembors = new ComboBox("Miembros");
         listaMiembors.setNullSelectionAllowed(false);
-        inicializarTextFields();
-        if(!(tipo.equals("R")&&cantTot==2)){
+        inicializarTextFields(tipo);
+        nombreTendencia.setReadOnly(true);
 	        layout.addComponent(representanteNombre);
 	        layout.addComponent(nombreTendencia);
 	        layout.addComponent(descripcionTende);
@@ -149,8 +166,7 @@ public class inscribirTendencia extends Panel {
 	            
 	            layout.addComponent(listaMiembors);
 	            layout.addComponent(quitarMiembro);
-	        }else{
-	        	
+	        }else{     	
 	        	
 	        }
 	
@@ -163,14 +179,17 @@ public class inscribirTendencia extends Panel {
 	        layout.addComponent(infoAdicional);
 	        
 		    final Image image = new Image("Imagen Subida");
-		    image.setVisible(false);
+		    imgFile=new File("C:/Users/lbarboza/Desktop/eclipse/"+nombre+nombreTendencia.getValue());
+		    image.setSource(new FileResource(imgFile));
+		    image.setVisible(true);
 	        final Upload imgUpload = new Upload("Archivo de la imagen ",
 				new Upload.Receiver() {
 					public OutputStream receiveUpload(String filename,
 							String mimeType) {
-						FileOutputStream fos = null; 
-						String nombreDB=nombre+nombreTendencia.getValue();
+						// Create upload stream
+						FileOutputStream fos = null; // Stream to write to
 						try {
+							String nombreDB=nombre+nombreTendencia.getValue();
 							imgFile = new File(".\\" + nombreDB);
 							fos = new FileOutputStream(imgFile);
 						} catch (final java.io.FileNotFoundException e) {
@@ -179,12 +198,13 @@ public class inscribirTendencia extends Panel {
 									Notification.TYPE_ERROR_MESSAGE);
 							return null;
 						}
-						return fos; 
+						return fos; // Return the output stream to write to
 					}
 				});
 	        imgUpload.addFinishedListener((new Upload.FinishedListener() {
 		        @Override
 		        public void uploadFinished(Upload.FinishedEvent finishedEvent) {
+		        	
 		        	image.setVisible(true);
 					image.setSource(new FileResource(imgFile));
 					
@@ -192,9 +212,8 @@ public class inscribirTendencia extends Panel {
 	        }));
 			layout.addComponent(imgUpload);
 			layout.addComponent(image);
-
 	        
-	        inscribirPlebiscito = new Button("Inscribir");
+	        inscribirPlebiscito = new Button("Terminar Edicion");
 	        inscribirPlebiscito.addClickListener(new Button.ClickListener() {
 	            public void buttonClick(ClickEvent event) {
 	            	
@@ -210,8 +229,8 @@ public class inscribirTendencia extends Panel {
 	            	verificarDatos();
 	            	if(validador){
 	            		try {
-							nuevaTendencia.saveToDB();
-							mensaje=new Label("Tendencia inscrita correctamente");
+							nuevaTendencia.editToDB();
+							mensaje=new Label("Tendencia editada correctamente");
 							inscribirPlebiscito.setVisible(false);
 						} catch (UnsupportedOperationException e) {
 							e.printStackTrace();
@@ -229,49 +248,42 @@ public class inscribirTendencia extends Panel {
 	            }
 	        });
 	        layout.addComponent(inscribirPlebiscito);
+	        borrarPlebiscito = new Button("Borrar Tendencia");
+	        borrarPlebiscito.addClickListener(new Button.ClickListener() {
+	            public void buttonClick(ClickEvent event) {
+	            	
+	            	try {
+						nuevaTendencia.borrarDeDB(nombre,nombreTendencia.getValue());
+						mensaje=new Label("Tendencia eliminada correctamente");
+						borrarPlebiscito.setVisible(false);
+						inscribirPlebiscito.setVisible(false);
+					} catch (UnsupportedOperationException e) {
+						e.printStackTrace();
+					} 
+	            	layout.addComponent(mensaje);
+	            	
+	            }
+	        });
+	        layout.addComponent(borrarPlebiscito);
+
+
+	}	
+	
+	
+	
+	public void inicializarTextFields(String tipo){
+		if(tipo.equals("R")){
+			
 		}else{
-			mensaje=new Label("Ya estan las dos tendencias de este referendo inscritas");
-			layout.addComponent(mensaje);
-		}
-	}
-	
-	
-	
-	public void agregarMiembro(){
-		if(nombreMiembro.getValue()!=null&&nombreMiembro.getValue()!=""){
-			miembros.add(nombreMiembro.getValue());
-			listaMiembors.addItem(nombreMiembro.getValue());
-			nombreMiembro.setValue("");
-		}
-	}
-	
-	public void quitarMiembro(){
-		String nombre=listaMiembors.getValue().toString();
-		boolean encontrar=true;
-		int index=0;
-		while(encontrar){
-			if(miembros.get(index)==nombre){
-				encontrar=false;
-				miembros.remove(index);
-			}else{
-				index++;
-			}
-		}
-		listaMiembors.removeAllItems();
-		for(int i=0;i<miembros.size();i++){
-			listaMiembors.addItem(miembros.get(i));
+			agregarMiembrosDeLista();
 		}
 		
-	}
-	
-	
-	public void inicializarTextFields(){
-		nombreTendencia = new TextField("Nombre de la Tendencia", "");
-		descripcionTende = new TextArea("Descripcion", "");
-		representanteNombre = mensaje=new Label("Organizador: 114350464");;
-		paginaWeb =new TextField("paginaWeb", "");
-		infoContacto= new TextField("Informacion contacto", "");
-		infoAdicional= new TextArea("Informacion adicional", "");
+		nombreTendencia = new TextField("Nombre de la Tendencia", infoTendencia.get(0));
+		descripcionTende = new TextArea("Descripcion", infoTendencia.get(3));
+		representanteNombre = mensaje=new Label("Organizador:" +infoTendencia.get(2));
+		paginaWeb =new TextField("paginaWeb", infoTendencia.get(4));
+		infoContacto= new TextField("Informacion contacto", infoTendencia.get(5));
+		infoAdicional= new TextArea("Informacion adicional", infoTendencia.get(6));
 		nombreMiembro= new TextField("Nombre miembro", "");
 		
 		nombreTendencia.setRequired(true);
@@ -281,6 +293,11 @@ public class inscribirTendencia extends Panel {
 		
 	}
 	
+	public void verificarDatos(){
+		verificarTextField(nombreTendencia);
+		verificarTextArea(descripcionTende);
+	//	verificarTextField(representanteNombre);
+	}	
 	public void verificarTextField(TextField textField){
 		try{
 			textField.validate();
@@ -305,33 +322,35 @@ public class inscribirTendencia extends Panel {
 		} 
 	}
 	
-	public void verificarDatos(){
-		verificarTextField(nombreTendencia);
-		verificarTextArea(descripcionTende);
-	//	verificarTextField(representanteNombre);
-	}	
-	
-	public void guardarImagen(File file) throws FileNotFoundException{
-		
-        FileInputStream fis = new FileInputStream(file);
-        ByteArrayOutputStream bos = new ByteArrayOutputStream();
-        byte[] buf = new byte[1024];
-        try {
-            for (int readNum; (readNum = fis.read(buf)) != -1;) {
-                bos.write(buf, 0, readNum);     
-            }
-        } catch (IOException ex) {
-        }
-        byte[] bytes = bos.toByteArray();
-
+	public void agregarMiembro(){
+		if(nombreMiembro.getValue()!=null&&nombreMiembro.getValue()!=""){
+			miembros.add(nombreMiembro.getValue());
+			listaMiembors.addItem(nombreMiembro.getValue());
+			nombreMiembro.setValue("");
+		}
 	}
-	
-	public Image sacarImagen(){
-		Image imagen=new Image();
+	public void agregarMiembrosDeLista(){
+		for(int i=0;i<miembros.size();i++){
+			listaMiembors.addItem(miembros.get(i));
+		}
+	}
+	public void quitarMiembro(){
+		String nombre=listaMiembors.getValue().toString();
+		boolean encontrar=true;
+		int index=0;
+		while(encontrar){
+			if(miembros.get(index)==nombre){
+				encontrar=false;
+				miembros.remove(index);
+			}else{
+				index++;
+			}
+		}
+		listaMiembors.removeAllItems();
+		for(int i=0;i<miembros.size();i++){
+			listaMiembors.addItem(miembros.get(i));
+		}
 		
-		return imagen;
 	}
 	
 }
-
-

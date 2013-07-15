@@ -1,0 +1,19 @@
+CLase FIrma digital:
+linea 27 tiene un path que es donde se guardan las cosas del loader,
+ en mi caso se guardaban en la carpeta de eclipse.
+
+
+Clase Editar tendencia
+Linea 182 igual tiene el filepath donde guarda el loader.
+
+Clase votaciones 
+Linea 199 igual que los dos anteriores.
+
+
+para ver info tendencias puede usar una varfa parecida a mi editar tendencia 
+nadamas le quita la parte de hacerlo editable.
+
+Si quiere que se vean las banderas pongalas en el mismo file del loader
+, por lo general en mi caso era la carpeta de eclipse, intente guardarlas en la
+base pero en teoria sacarlas y convertirlas a vaadin image suckea tons a la mierda
+se fue en carpeta.

@@ -20,6 +20,7 @@ public class tendencias {
 	public String contacto="";
 	public String infoAd="";
 	public ArrayList<String> miembros;
+	public ArrayList<String> miembrosant;
 	public DBManager manejoDB;
 	
 	private int errorID=0;
@@ -34,6 +35,30 @@ public class tendencias {
 		manejoDB.queryTest(nombre,procesoVotacionPertenece,representante,descripcion,pagina,contacto,infoAd,miembros);
 	}
 	
+	public void editToDB() throws UnsupportedOperationException, SQLException{
+		manejoDB=new DBManager();
+		String[] values = new String[7];
+		values[0]=nombre;
+		values[1]=procesoVotacionPertenece;
+		values[2]=representante;
+		values[3]=descripcion;
+		values[4]=pagina;
+		values[5]=contacto;
+		values[6]=infoAd;
+
+		try {
+			manejoDB.editarTendencia(values);
+			manejoDB.agregarMiembros(nombre, procesoVotacionPertenece, miembros,miembrosant);
+		} catch (Exception e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+	}
+	
+	public void borrarDeDB(String nombreVotacion,String nombreTendencia){
+		manejoDB=new DBManager();
+		manejoDB.borrarTendencia(nombreTendencia, nombreVotacion);
+	}
 	
 	public void getFromDB(String nombre,String procesoVotacion){
 		

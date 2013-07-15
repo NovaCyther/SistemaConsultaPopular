@@ -52,13 +52,15 @@ public class graficarResultados {
 			totVotos=totVotos+resultados.get(i);
 		}
 		for(int i=0;i<cantTendencias;i++){
-			System.out.println(resultados.get(i));
+
 			percnt=(resultados.get(i)*100.0)/totVotos;
 			percnt= roundTwoDecimals(percnt);
 			porcentajes.add(percnt);
 			
 		}
+		if(porcentajes.size()>0){
 		temp2=porcentajes.get(0);
+		}
 		temp1=tendencias.get(0);
 		porcentajes.set(0,porcentajes.get(indiceMayor));
 		tendencias.set(0,tendencias.get(indiceMayor));

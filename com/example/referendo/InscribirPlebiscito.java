@@ -1,26 +1,33 @@
-package com.example.referendo;
+package com.example.proyvotaciones;
 
-import com.example.referendo.NavigatorUI.MainView;
+import com.example.proyvotaciones.NavigatorUI.MainView;
+import com.vaadin.server.FileResource;
 import com.vaadin.server.UserError;
 import com.vaadin.ui.Button;
 import com.vaadin.ui.ComboBox;
 import com.vaadin.ui.FormLayout;
 import com.vaadin.ui.HorizontalLayout;
+import com.vaadin.ui.Image;
 import com.vaadin.ui.Label;
+import com.vaadin.ui.Notification;
 import com.vaadin.ui.Panel;
 import com.vaadin.ui.PopupDateField;
 import com.vaadin.ui.TextArea;
 import com.vaadin.ui.TextField;
 import com.vaadin.ui.Upload;
 import com.vaadin.ui.Button.ClickEvent;
+import com.vaadin.ui.Upload.SucceededEvent;
 import com.vaadin.ui.Window;
 
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.FileReader;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.io.Reader;
+import java.sql.SQLException;
+import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 
@@ -47,8 +54,11 @@ public class InscribirPlebiscito extends Panel{
 	CSVLoader csvLoader;
 	DBManager dbManager;
 	private File tempFile;
+	private File imgFile;
 	FileReader reader;
 	Validador validador;
+	String iniIns, finIns, iniDis, finDis, iniVot, finVot;
+	FileInputStream fis;
 	
 	public InscribirPlebiscito(final MainView mainView) {
 		
@@ -60,7 +70,6 @@ public class InscribirPlebiscito extends Panel{
         layout.addStyleName("outlined");
         layout.setSizeFull();
         layout.setSpacing(true);
-        Upload imgUpload;
         
         /*Inicializacion de tipo*/
         tipo = new ComboBox("Tipo");
@@ -82,36 +91,61 @@ public class InscribirPlebiscito extends Panel{
 	    /*Inicializacion de nombre, descripcion, comunidad y organizador*/
 	    inicializarTextFields();
 	    
+	    /*Inicializa la imagen*/
+	    final Image image = new Image("Imagen Subida");
+	    image.setVisible(false);
+	    
+	    /*Inicializa las fechas*/
 		inicioInscripcion = new PopupDateField("Inicio");
-		inicioInscripcion.setDateFormat("yyyy-mm-dd");
+		inicioInscripcion.setDateFormat("dd/MM/yyyy");
 		finInscripcion = new PopupDateField("Fin");
-		finInscripcion.setDateFormat("yyyy-mm-dd");
+		finInscripcion.setDateFormat("dd/MM/yyyy");
 		inicioDiscusion = new PopupDateField("Inicio");
-		inicioDiscusion.setDateFormat("yyyy-mm-dd");
+		inicioDiscusion.setDateFormat("dd/MM/yyyy");
 		finDiscusion = new PopupDateField("Fin");
-		finDiscusion.setDateFormat("yyyy-mm-dd");
+		finDiscusion.setDateFormat("dd/MM/yyyy");
 		inicioVotacion = new PopupDateField("Inicio");
-		inicioVotacion.setDateFormat("yyyy-mm-dd");
+		inicioVotacion.setDateFormat("dd/MM/yyyy");
 		finVotacion = new PopupDateField("Fin");
-		finVotacion.setDateFormat("yyyy-mm-dd");
-       
-        layout.addComponent(nombre);
+		finVotacion.setDateFormat("dd/MM/yyyy");
+        
+	
+	    layout.addComponent(nombre);
         layout.addComponent(descripcion);
         layout.addComponent(comunidad);
         layout.addComponent(organizador);
         layout.addComponent(tipo);
         layout.addComponent(estilo);
         
-       
-        imgUpload = new Upload("Archivo de la imagen ", null);
-        imgUpload.setButtonCaption("Cargar archivo de la imagen");
-        imgUpload.setButtonCaption("Start Upload");
-        layout.addComponent(new Upload("Archivo de la imagen ", new Upload.Receiver() {
-            public OutputStream receiveUpload(String filename, String MIMEType) {
-                return null;
-            }
+        final Upload imgUpload = new Upload("Archivo de la imagen ",
+			new Upload.Receiver() {
+				public OutputStream receiveUpload(String filename,
+						String mimeType) {
+					// Create upload stream
+					FileOutputStream fos = null; // Stream to write to
+					try {
+						// Open the file for writing.
+						imgFile = new File(".\\" + filename);
+						fos = new FileOutputStream(imgFile);
+						fis = new FileInputStream(imgFile);
+					} catch (final java.io.FileNotFoundException e) {
+						Notification.show("Could not open file<br/>",
+								e.getMessage(),
+								Notification.TYPE_ERROR_MESSAGE);
+						return null;
+					}
+					return fos; // Return the output stream to write to
+				}
+			});
+        imgUpload.addFinishedListener((new Upload.FinishedListener() {
+	        @Override
+	        public void uploadFinished(Upload.FinishedEvent finishedEvent) {
+	        	image.setVisible(true);
+				image.setSource(new FileResource(imgFile));
+	        }
         }));
-        
+		layout.addComponent(imgUpload);
+
         final Upload upload = new Upload("Archivo del Padrón ", new Upload.Receiver() {
         	@Override
         	public OutputStream receiveUpload(String filename, String mimeType) {
@@ -145,7 +179,7 @@ public class InscribirPlebiscito extends Panel{
 	        }
         }));
         layout.addComponent(upload);
-        
+        layout.addComponent(image);
         
         
         final HorizontalLayout periodoInscripcion = new HorizontalLayout(
@@ -170,34 +204,53 @@ public class InscribirPlebiscito extends Panel{
         finalizarInscripcion = new Button("Finalizar la inscripcion");
         finalizarInscripcion.addClickListener(new Button.ClickListener() {
             public void buttonClick(ClickEvent event) {
+            	boolean exito = true;
             	if ( verificarErrorDatos() == false ){
             		try {
 						String columnNames = "nombreplebiscito, organizador, descripcion, comunidad, tipo, estilo";/*+ 
 				        "inicioinscripciontendencias, inicioperiododiscucion,"+ 
 				       "inicioperiodovotacion, fininscripciontendencias, finperiododiscusion,"+ 
 				       "finperiodovotacion";*/
-			
-						String[] values = {nombre.getValue(), organizador.getValue(), descripcion.getValue(), comunidad.getValue(), tipo.getValue().toString().substring(0, 1),
+						
+						
+						calculoFechas();
+						/*String[] values = {nombre.getValue(), organizador.getValue(), descripcion.getValue(), comunidad.getValue(), tipo.getValue().toString().substring(0, 1),
 							       estilo.getValue().toString().substring(0, 1), inicioInscripcion.getValue().toString(), inicioDiscusion.getValue().toString(),
 							       inicioVotacion.getValue().toString(), finInscripcion.getValue().toString(), finDiscusion.getValue().toString(),
-							       finVotacion.getValue().toString() };
-						dbManager.insertData("plebiscito", columnNames, values);
+							       finVotacion.getValue().toString() };*/
 						
+						String[] values = {nombre.getValue(), organizador.getValue(), descripcion.getValue(), comunidad.getValue(), tipo.getValue().toString().substring(0, 1),
+					       estilo.getValue().toString().substring(0, 1), iniIns, iniDis, iniVot, finIns, finDis, finVot};
+						dbManager.insertData("plebiscito", columnNames, values);
+						if (imgFile != null){
+							dbManager.addImagePlebiscito(imgFile.getAbsolutePath(), nombre.getValue());
+						}
+						nombre.setComponentError(null);
+						finalizarInscripcion.setComponentError(null);
+            		}catch(Exception e){
+							nombre.setComponentError(new UserError("Ya existe un proceso con ese nombre"));
+							finalizarInscripcion.setComponentError(new UserError("Ya existe un proceso con ese nombre"));
+							exito = false;
+							e.printStackTrace();
+					}
+					try{
 						if (reader != null){
 	            			String[] columnTypes = {"int","String","String","String","String"};
 	            			csvLoader = new CSVLoader( dbManager.crearConexion() );
-	            			csvLoader.loadCSV(reader, "padron", "cedula, apellido1, apellido2, nombre, nombreplebiscito", columnTypes, nombre.getValue().toString(), true);
+	            			csvLoader.loadCSV(reader, "padron", "cedula, apellido1, apellido2, nombre, nombreplebiscito", columnTypes, nombre.getValue().toString(), false);
 							reader = null;
             			}
-						
-						Window guardarCambiosWindow = new Window("Guardar Cambios", new Label("Cambios Guardados con exito"));
-	            		mainView.getUI().addWindow(guardarCambiosWindow);
-	            		guardarCambiosWindow.setPositionX(200);
-	            		guardarCambiosWindow.setPositionY(100);
 					} catch (Exception e) {
 						// TODO Auto-generated catch block
 						upload.setComponentError(new UserError("Revisar formato del archivo del padron"));
 						e.printStackTrace();
+						exito = false;
+					}
+					if (exito){
+						Window guardarCambiosWindow = new Window("Guardar Cambios", new Label("Cambios Guardados con exito"));
+	            		mainView.getUI().addWindow(guardarCambiosWindow);
+	            		guardarCambiosWindow.setPositionX(200);
+	            		guardarCambiosWindow.setPositionY(100);
 					}
             	}
             }
@@ -208,7 +261,7 @@ public class InscribirPlebiscito extends Panel{
 	
 	
 	public void inicializarTextFields(){
-		nombre = new TextField("Nombre del Plebiscito", "");
+		nombre = new TextField("Nombre del Proceso", "");
 		descripcion = new TextArea("Descripcion", "");
 		comunidad = new TextField("Comunidad", "");
 		organizador =new TextField("Organizador", "");
@@ -222,9 +275,9 @@ public class InscribirPlebiscito extends Panel{
 	public boolean verificarFechasTraslapadas(){
 		boolean hayError = false;
 		try{
-			if (finInscripcion.getValue().equals(inicioVotacion.getValue()) || 
+			if (finInscripcion.getValue()  != null && inicioVotacion.getValue()  != null ) {
+				if (finInscripcion.getValue().equals(inicioVotacion.getValue()) || 
 					finInscripcion.getValue().after(inicioVotacion.getValue())){
-				if (finInscripcion.getValue()  != null && inicioVotacion.getValue()  != null ) {
 					inicioVotacion.setComponentError(new UserError("Las fechas de inscipcion y votacion no se pueden traslapar"));
 					finInscripcion.setComponentError(new UserError("Las fechas de inscipcion y votacion no se pueden traslapar"));
 					hayError = true;
@@ -233,7 +286,6 @@ public class InscribirPlebiscito extends Panel{
 			else{
 				inicioVotacion.setComponentError(null);
 				finInscripcion.setComponentError(null);
-				
 			}
 		}
 		catch(Exception e){
@@ -264,6 +316,11 @@ public class InscribirPlebiscito extends Panel{
 				validador.verificarFechas(inicioDiscusion, finDiscusion) ){
 			hayError = true;
 		}
+		else{
+			if ( validador.verificarCampoCedula(organizador) ){
+				hayError = true;
+			}
+		}
 		if ( !validador.verificarFechas(inicioInscripcion, finInscripcion) & 
 				!validador.verificarFechas(inicioVotacion, finVotacion) ){
 			if ( verificarFechasTraslapadas() ){
@@ -281,192 +338,60 @@ public class InscribirPlebiscito extends Panel{
 		return hayError;
 	}
 
-	/*
-	 * Getters y setters
-	 */
-
-	public TextField getNombre() {
-		return nombre;
-	}
-
-
-	public TextArea getDescripcion() {
-		return descripcion;
-	}
-
-
-	public TextField getComunidad() {
-		return comunidad;
-	}
-
-
-	public TextField getOrganizador() {
-		return organizador;
-	}
-
-
-	public ComboBox getTipo() {
-		return tipo;
-	}
-
-
-	public ComboBox getEstilo() {
-		return estilo;
-	}
-
-
-	public PopupDateField getInicioInscripcion() {
-		return inicioInscripcion;
-	}
-
-
-	public PopupDateField getFinInscripcion() {
-		return finInscripcion;
-	}
-
-
-	public PopupDateField getInicioDiscusion() {
-		return inicioDiscusion;
-	}
-
-
-	public PopupDateField getFinDiscusion() {
-		return finDiscusion;
-	}
-
-
-	public PopupDateField getInicioVotacion() {
-		return inicioVotacion;
-	}
-
-
-	public PopupDateField getFinVotacion() {
-		return finVotacion;
-	}
-
-
-	public Button getFinalizarInscripcion() {
-		return finalizarInscripcion;
-	}
-
-
-	public CSVLoader getCsvLoader() {
-		return csvLoader;
-	}
-
-
-	public DBManager getDbManager() {
-		return dbManager;
-	}
-
-
-	public File getTempFile() {
-		return tempFile;
-	}
-
-
-	public FileReader getReader() {
-		return reader;
-	}
-
-
-	public Validador getValidador() {
-		return validador;
-	}
-
-
-	public void setNombre(TextField nombre) {
-		this.nombre = nombre;
-	}
-
-
-	public void setDescripcion(TextArea descripcion) {
-		this.descripcion = descripcion;
-	}
-
-
-	public void setComunidad(TextField comunidad) {
-		this.comunidad = comunidad;
-	}
-
-
-	public void setOrganizador(TextField organizador) {
-		this.organizador = organizador;
-	}
-
-
-	public void setTipo(ComboBox tipo) {
-		this.tipo = tipo;
-	}
-
-
-	public void setEstilo(ComboBox estilo) {
-		this.estilo = estilo;
-	}
-
-
-	public void setInicioInscripcion(PopupDateField inicioInscripcion) {
-		this.inicioInscripcion = inicioInscripcion;
-	}
-
-
-	public void setFinInscripcion(PopupDateField finInscripcion) {
-		this.finInscripcion = finInscripcion;
-	}
-
-
-	public void setInicioDiscusion(PopupDateField inicioDiscusion) {
-		this.inicioDiscusion = inicioDiscusion;
-	}
-
-
-	public void setFinDiscusion(PopupDateField finDiscusion) {
-		this.finDiscusion = finDiscusion;
-	}
-
-
-	public void setInicioVotacion(PopupDateField inicioVotacion) {
-		this.inicioVotacion = inicioVotacion;
-	}
-
-
-	public void setFinVotacion(PopupDateField finVotacion) {
-		this.finVotacion = finVotacion;
-	}
-
-
-	public void setFinalizarInscripcion(Button finalizarInscripcion) {
-		this.finalizarInscripcion = finalizarInscripcion;
-	}
-
-
-	public void setCsvLoader(CSVLoader csvLoader) {
-		this.csvLoader = csvLoader;
-	}
-
-
-	public void setDbManager(DBManager dbManager) {
-		this.dbManager = dbManager;
-	}
-
-
-	public void setTempFile(File tempFile) {
-		this.tempFile = tempFile;
-	}
-
-
-	public void setReader(FileReader reader) {
-		this.reader = reader;
-	}
-
-
-	public void setValidador(Validador validador) {
-		this.validador = validador;
+	public void setToNullComponents(){
+		nombre.setValue(null);
+		descripcion.setValue("");
+		organizador.setValue("");
+		comunidad.setValue("");
+		tipo.setValue(null);
+		estilo.setValue(null);
+		inicioInscripcion.setValue(null);
+		inicioVotacion.setValue(null);
+		inicioDiscusion.setValue(null);
+		finInscripcion.setValue(null);
+		finVotacion.setValue(null);
+		finDiscusion.setValue(null);
 	}
 	
-	public void enviarAInscribir(String columnNames, List<String> columnTypes, List<String> values){
-		if ( !inicioInscripcion.getValue().toString().isEmpty() ){
-			
+	public void calculoFechas(){
+		if (inicioInscripcion.getValue() == null){
+			iniIns = ""; 
+		}
+		else{
+			iniIns = inicioInscripcion.getValue().toString();
+		}
+		if (finInscripcion.getValue() == null){
+			finIns = ""; 
+		}
+		else{
+			finIns = finInscripcion.getValue().toString();
+		}
+		
+		if (inicioVotacion.getValue() == null){
+			iniVot = ""; 
+		}
+		else{
+			iniVot = inicioVotacion.getValue().toString();
+		}
+		if (finVotacion.getValue() == null){
+			finVot = ""; 
+		}
+		else{
+			finVot = finVotacion.getValue().toString();
+		}
+		
+		if (inicioDiscusion.getValue() == null){
+			iniDis = ""; 
+		}
+		else{
+			iniDis = inicioDiscusion.getValue().toString();
+		}
+		if (finDiscusion.getValue() == null){
+			finDis = ""; 
+		}
+		else{
+			finDis = finDiscusion.getValue().toString();
 		}
 	}
+	
 }

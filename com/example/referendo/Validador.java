@@ -1,4 +1,4 @@
-package com.example.referendo;
+package com.example.proyvotaciones;
 
 import java.util.Date;
 
